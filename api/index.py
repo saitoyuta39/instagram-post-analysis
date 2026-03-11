@@ -9,6 +9,8 @@ from typing import List, Optional, Dict, Any
 import requests
 import json
 import uuid
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
 
 load_dotenv()
 
@@ -69,14 +71,38 @@ class IGPost(BaseModel):
     children: Optional[Dict[str, List[Dict[str, str]]]] = None # 構造を Dict[str, List] に修正
 
 # --- Helpers ---
+def get_google_doc_content(doc_id: str) -> str:
+    """Google Docs API を使用してドキュメントの内容を取得する。"""
+    service_account_info_env = os.getenv("GOOGLE_SERVICE_ACCOUNT_INFO")
+    if not service_account_info_env:
+        print("Error: GOOGLE_SERVICE_ACCOUNT_INFO is not set.")
+        return ""
+    
+    try:
+        service_account_info = json.loads(service_account_info_env)
+        creds = service_account.Credentials.from_service_account_info(
+            service_account_info, scopes=['https://www.googleapis.com/auth/documents.readonly']
+        )
+        service = build('docs', 'v1', credentials=creds)
+        document = service.documents().get(documentId=doc_id).execute()
+        
+        content = ""
+        for element in document.get('body').get('content'):
+            if 'paragraph' in element:
+                for text_run in element.get('paragraph').get('elements'):
+                    content += text_run.get('textRun', {}).get('content', '')
+        return content
+    except Exception as e:
+        print(f"Error fetching Google Doc: {e}")
+        return ""
+
 def load_knowledge_base() -> str:
-    knowledge = ""
-    # Vercel では api/knowledge_base に配置される想定
-    kb_path = os.path.join(os.path.dirname(__file__), "knowledge_base", "*.md")
-    for file_path in glob.glob(kb_path):
-        with open(file_path, "r", encoding="utf-8") as f:
-            knowledge += f"\n---\n{f.read()}\n"
-    return knowledge
+    """Google ドキュメントから分析用ナレッジベースを読み込む。"""
+    doc_id = os.getenv("GOOGLE_DOC_ID")
+    if not doc_id:
+        print("Warning: GOOGLE_DOC_ID is not set.")
+        return ""
+    return get_google_doc_content(doc_id)
 
 def perform_gemini_multimodal_analysis(media_urls: List[str], caption: str, media_type: str, knowledge: str) -> Dict[str, Any]:
     """Gemini でマルチモーダル解析を実行。カルーセル対応。"""
