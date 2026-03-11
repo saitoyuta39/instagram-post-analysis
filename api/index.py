@@ -80,7 +80,7 @@ def load_knowledge_base() -> str:
 
 def perform_gemini_multimodal_analysis(media_urls: List[str], caption: str, media_type: str, knowledge: str) -> Dict[str, Any]:
     """Gemini でマルチモーダル解析を実行。カルーセル対応。"""
-    model = genai.GenerativeModel("gemini-1.5-pro") # 最新モデル名に修正
+    model = genai.GenerativeModel("gemini-2.5-pro") # 最新モデル名に修正
     
     is_carousel = len(media_urls) > 1
     media_info = f"メディアタイプ: {media_type}\n"
