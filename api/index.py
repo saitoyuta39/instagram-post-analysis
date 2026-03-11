@@ -140,11 +140,11 @@ def perform_gemini_multimodal_analysis(media_urls: List[str], caption: str, medi
         print(f"Gemini API Error: {e}")
         return {"error": str(e)}
 
-@app.get("/")
+@app.get("/api")
 async def root():
     return {"message": "Instagram Post Analysis API (Vercel version)"}
 
-@app.get("/ig_posts/{username}", response_model=List[IGPost])
+@app.get("/api/ig_posts/{username}", response_model=List[IGPost])
 async def get_instagram_posts(username: str):
     """Business Discovery を使用して特定のユーザーの最新投稿を取得する。"""
     if not INSTAGRAM_ACCESS_TOKEN or not IG_BUSINESS_ACCOUNT_ID:
@@ -166,7 +166,7 @@ async def get_instagram_posts(username: str):
         if isinstance(e, HTTPException): raise e
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/analyze", response_model=AnalysisResult)
+@app.post("/api/analyze", response_model=AnalysisResult)
 async def start_analysis(request: InstagramMediaRequest):
     """解析を実行し、結果を直接返す（Vercel対応の同期処理）。"""
     task_id = request.media_id or str(uuid.uuid4())
