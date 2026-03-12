@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Loader2, PlayCircle, ImageIcon, CheckCircle2, AlertCircle, Lightbulb, TrendingUp, ArrowRight } from "lucide-react";
+import { Search, Loader2, PlayCircle, ImageIcon, CheckCircle2, AlertCircle, Lightbulb, TrendingUp, ArrowRight, Edit3, Sparkles } from "lucide-react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
@@ -16,6 +16,8 @@ export default function Home() {
   const [isLoadingPosts, setIsLoadingPosts] = useState(false);
   const [selectedPost, setSelectedPost] = useState<any>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [editedCaption, setEditedCaption] = useState("");
+  const [isPreviewing, setIsPreviewing] = useState(false);
 
   const [url, setUrl] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -70,17 +72,23 @@ export default function Home() {
     setCurrentImageIndex(index);
   };
 
+  const handleSelectPost = (post: any) => {
+    setSelectedPost(post);
+    setEditedCaption(post.caption || "");
+    setPreviewUrl(post.media_url);
+    setIsPreviewing(true);
+    // スクロールしてプレビューを表示
+    setTimeout(() => {
+      const previewElement = document.getElementById("preview-section");
+      previewElement?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 100);
+  };
+
   const handleAnalyze = async (postData?: any) => {
     const targetPost = postData || selectedPost;
     if (!targetPost && !url) return;
 
-    // プレビュー用URLを設定
-    if (targetPost?.media_url) {
-      setPreviewUrl(targetPost.media_url);
-    } else if (url) {
-      setPreviewUrl(getPreviewUrl(url));
-    }
-
+    setIsPreviewing(false); // 分析開始時にプレビューを閉じる
     setIsAnalyzing(true);
     setResult(null);
     setProgress(5);
@@ -110,7 +118,7 @@ export default function Home() {
         body: JSON.stringify({
           media_url: mediaUrls[0],
           media_urls: mediaUrls,
-          caption: targetPost?.caption || "分析対象の投稿",
+          caption: editedCaption || targetPost?.caption || "分析対象の投稿",
           media_type: targetPost?.media_type || (url.includes("reels") ? "VIDEO" : "IMAGE"),
           media_id: targetPost?.id,
         }),
@@ -232,10 +240,7 @@ export default function Home() {
                       transition={{ delay: idx * 0.05 }}
                       whileHover={{ y: -3 }}
                       whileTap={{ scale: 0.98 }}
-                      onClick={() => {
-                        setSelectedPost(post);
-                        handleAnalyze(post);
-                      }}
+                      onClick={() => handleSelectPost(post)}
                       className={cn(
                         "group relative aspect-[4/5] cursor-pointer overflow-hidden rounded-xl bg-white shadow-sm ring-2 transition-all duration-300",
                         selectedPost?.id === post.id ? "ring-pink-500 shadow-pink-100" : "ring-transparent hover:ring-neutral-200"
@@ -287,14 +292,80 @@ export default function Home() {
               />
             </div>
             <button
-              onClick={() => handleAnalyze()}
+              onClick={() => {
+                const manualPost = { media_url: getPreviewUrl(url), caption: "", media_type: url.includes("reels") ? "VIDEO" : "IMAGE" };
+                handleSelectPost(manualPost);
+              }}
               disabled={isAnalyzing || !url}
               className="rounded-2xl bg-white px-8 py-3.5 font-bold shadow-sm ring-1 ring-neutral-200 transition-all hover:bg-neutral-50 disabled:bg-neutral-50 disabled:text-neutral-300 md:w-auto text-sm"
             >
-              {isAnalyzing ? <Loader2 className="h-5 w-5 animate-spin text-pink-600" /> : "解析を開始"}
+              プレビューを確認
             </button>
           </div>
         </div>
+
+        {/* Preview & Edit Section */}
+        <AnimatePresence>
+          {isPreviewing && selectedPost && (
+            <motion.div
+              id="preview-section"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              className="mb-16 overflow-hidden"
+            >
+              <div className="rounded-[32px] bg-white p-8 shadow-xl shadow-neutral-200/50 ring-1 ring-neutral-100">
+                <div className="mb-6 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-pink-50 text-pink-600">
+                      <Edit3 className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-black">分析内容の確認・編集</h2>
+                      <p className="text-sm text-neutral-400">キャプションを編集して「もしも」のシミュレーションも可能です</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setIsPreviewing(false)}
+                    className="text-sm font-bold text-neutral-400 hover:text-neutral-900"
+                  >
+                    キャンセル
+                  </button>
+                </div>
+
+                <div className="grid gap-8 md:grid-cols-2">
+                  <div className="aspect-[4/5] overflow-hidden rounded-2xl bg-neutral-50 ring-1 ring-neutral-100">
+                    <img
+                      src={selectedPost.media_url}
+                      alt="Preview"
+                      className="h-full w-full object-cover"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-4">
+                    <div className="flex-1">
+                      <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-neutral-400">
+                        キャプション本文
+                      </label>
+                      <textarea
+                        value={editedCaption}
+                        onChange={(e) => setEditedCaption(e.target.value)}
+                        placeholder="キャプションを入力してください..."
+                        className="h-[calc(100%-28px)] w-full resize-none rounded-2xl border-none bg-neutral-50 p-4 text-sm leading-relaxed placeholder:text-neutral-300 focus:outline-none focus:ring-2 focus:ring-pink-500/20"
+                      />
+                    </div>
+                    <button
+                      onClick={() => handleAnalyze()}
+                      className="group flex items-center justify-center gap-2 rounded-2xl bg-pink-600 px-8 py-4 text-lg font-black text-white shadow-lg shadow-pink-200 transition-all hover:bg-pink-700 hover:shadow-xl"
+                    >
+                      <Sparkles className="h-5 w-5" />
+                      <span>この内容でAI解析を開始</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Progress Display (Modal) */}
         <AnimatePresence>
@@ -444,9 +515,14 @@ export default function Home() {
                       <div className="space-y-5">
                         {items.length > 0 ? items.map((f: any, i: number) => (
                           <div key={i} className="group">
-                            <div className="mb-1.5 flex items-center gap-2">
+                            <div className="mb-1.5 flex flex-wrap items-center gap-2">
                               {f.location && (
-                                <span className="rounded-md bg-white px-1.5 py-0.5 text-[9px] font-bold text-neutral-400 shadow-sm ring-1 ring-neutral-100">
+                                <span className={cn(
+                                  "rounded-md px-1.5 py-0.5 text-[9px] font-bold shadow-sm ring-1",
+                                  f.location.includes("キャプション") || f.location.includes("ハッシュタグ") 
+                                    ? "bg-pink-50 text-pink-600 ring-pink-100" 
+                                    : "bg-white text-neutral-400 ring-neutral-100"
+                                )}>
                                   {f.location}
                                 </span>
                               )}
